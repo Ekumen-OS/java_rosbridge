@@ -533,7 +533,7 @@ public class RosBridge {
 		return UUID.randomUUID().toString();
 	}
 
-	public void callService(ServiceRequest request, RosServiceResponseDelegate onResponse){
+	public void callService(String serviceName, Object args, RosServiceResponseDelegate onResponse){
 
 		if(this.session == null){
 			throw new RuntimeException("Rosbridge connection is closed. Cannot call service.");
@@ -543,8 +543,8 @@ public class RosBridge {
 		String id = generateId();
 		jsonMsg.put("op", "call_service");
 		jsonMsg.put("id", id);  //optional
-		jsonMsg.put("service", request.getName());
-		jsonMsg.put("args", request.getArgs());  //optional
+		jsonMsg.put("service", serviceName);
+		jsonMsg.put("args", args);  //optional
 //		jsonMsg.put("fragment_size", msg);  //optional
 //		jsonMsg.put("compression", msg);  //optional
 
@@ -568,7 +568,7 @@ public class RosBridge {
 			fut.get(2, TimeUnit.SECONDS);
 			serviceDelegates.put(id, onResponse);
 		}catch (Throwable t){
-			System.out.println("Error calling service " + request.getName());
+			System.out.println("Error calling service " + serviceName);
 			t.printStackTrace();
 		}
 

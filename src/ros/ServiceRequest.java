@@ -2,11 +2,11 @@ package ros;
 
 public class ServiceRequest {
     private String name;
-    private Object args;
+    private RosBridge rosBridge;
 
-    public ServiceRequest(String name, Object args){
+    public ServiceRequest(String name, RosBridge rosBridge){
         this.name = name;
-        this.args = args;
+        this.rosBridge = rosBridge;
     }
 
     public String getName() {
@@ -17,11 +17,7 @@ public class ServiceRequest {
         this.name = name;
     }
 
-    public Object getArgs() {
-        return args;
-    }
-
-    public void setArgs(Object args) {
-        this.args = args;
+    public void callService(RosServiceResponseDelegate onResponse, Object args){
+        rosBridge.callService(name, args, onResponse);
     }
 }

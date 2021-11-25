@@ -37,7 +37,6 @@ public class Publisher {
 		this.rosBridge = rosBridge;
 
 		this.rosBridge.advertise(this.topic, this.msgType);
-
 	}
 
 
