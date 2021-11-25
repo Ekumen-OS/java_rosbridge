@@ -62,10 +62,11 @@ public class RosBridge {
 	protected final CountDownLatch closeLatch;
 	protected Session session;
 
-	protected Map<String, RosBridgeSubscriber> listeners = new ConcurrentHashMap<String, RosBridge.RosBridgeSubscriber>();
-	protected Set<String> publishedTopics = new HashSet<String>();
+	protected Map<String, RosBridgeSubscriber> listeners = new ConcurrentHashMap<>();
+	private Map<String, RosServiceResponseDelegate> serviceDelegates = new ConcurrentHashMap<>();
+	protected Set<String> publishedTopics = new HashSet<>();
 
-	protected Map<String, FragmentManager> fragementManagers = new HashMap<String, FragmentManager>();
+	protected Map<String, FragmentManager> fragementManagers = new HashMap<>();
 
 	protected boolean hasConnected = false;
 
@@ -241,6 +242,13 @@ public class RosBridge {
 						subscriber.receive(node, msg);
 					}
 				}
+				if(op.equals("service_response")){
+					String id = node.get("id").asText();
+					RosServiceResponseDelegate responseDelegate = this.serviceDelegates.get(id);
+					if(responseDelegate != null){
+						responseDelegate.response(node, msg);
+					}
+				}
 				else if(op.equals("fragment")){
 					this.processFragment(node);
 				}
@@ -249,9 +257,6 @@ public class RosBridge {
 			System.out.println("Could not parse ROSBridge web socket message into JSON data");
 			e.printStackTrace();
 		}
-
-
-
 	}
 
 
@@ -267,7 +272,6 @@ public class RosBridge {
 	public void subscribe(String topic, String type, RosListenDelegate delegate){
 		this.subscribe(SubscriptionRequestMsg.generate(topic).setType(type), delegate);
 	}
-
 
 	/**
 	 * Subscribes to a ros topic. New publish results will be reported to the provided delegate.
@@ -520,6 +524,51 @@ public class RosBridge {
 			fut.get(2, TimeUnit.SECONDS);
 		}catch (Throwable t){
 			System.out.println("Error publishing to " + topic + " with message type: " + type);
+			t.printStackTrace();
+		}
+
+	}
+
+	private String generateId(){
+		return UUID.randomUUID().toString();
+	}
+
+	public void callService(ServiceRequest request, RosServiceResponseDelegate onResponse){
+
+		if(this.session == null){
+			throw new RuntimeException("Rosbridge connection is closed. Cannot call service.");
+		}
+
+		Map<String, Object> jsonMsg = new HashMap<>();
+		String id = generateId();
+		jsonMsg.put("op", "call_service");
+		jsonMsg.put("id", id);  //optional
+		jsonMsg.put("service", request.getName());
+		jsonMsg.put("args", request.getArgs());  //optional
+//		jsonMsg.put("fragment_size", msg);  //optional
+//		jsonMsg.put("compression", msg);  //optional
+
+
+		JsonFactory jsonFactory = new JsonFactory();
+		StringWriter writer = new StringWriter();
+		JsonGenerator jsonGenerator;
+		ObjectMapper objectMapper = new ObjectMapper();
+
+		try {
+			jsonGenerator = jsonFactory.createGenerator(writer);
+			objectMapper.writeValue(jsonGenerator, jsonMsg);
+		} catch(Exception e){
+			System.out.println("Error");
+		}
+
+		String jsonMsgString = writer.toString();
+		Future<Void> fut;
+		try{
+			fut = session.getRemote().sendStringByFuture(jsonMsgString);
+			fut.get(2, TimeUnit.SECONDS);
+			serviceDelegates.put(id, onResponse);
+		}catch (Throwable t){
+			System.out.println("Error calling service " + request.getName());
 			t.printStackTrace();
 		}
 
